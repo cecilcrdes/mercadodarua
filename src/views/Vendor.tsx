@@ -167,6 +167,8 @@ export function VendorView() {
   const [exclusionDone, setExclusionDone] = useState(false);
 
   const store = state.stores.find((s) => s.id === state.vendorStoreId)!;
+  const session = state.vendorUser;
+  const isManager = !session || session.role === "gerente";
   const orders = useMemo(
     () => state.orders.filter((o) => o.storeId === store.id).sort((a, b) => b.placedAt - a.placedAt),
     [state.orders, store.id]
@@ -241,9 +243,11 @@ export function VendorView() {
               <Chip className="border-sun-300 bg-sun-100 text-sun-700">parceiro desde 2025 • adesão R$ 0</Chip>
             </div>
             <p className="mt-1 flex flex-wrap items-center gap-x-3 text-xs font-semibold text-inksoft">
-              <span className="flex items-center gap-1"><IStar className="h-3.5 w-3.5 text-sun-500" sw={2.2} /> {store.rating.toFixed(1)} ({store.reviews})</span>
+              <span className="flex items-center gap-1"><IStar className="h-3.5 w-3.5 text-sun-500" sw={2.2} /> {store.reviews > 0 ? `${store.rating.toFixed(1)} (${store.reviews})` : "loja nova no bairro"}</span>
               <span className="flex items-center gap-1"><IBike className="h-3.5 w-3.5" /> entrega própria: {store.operators.filter((o) => o.role === "entregador").length} entregador(es)</span>
-              <span className="flex items-center gap-1"><ILock className="h-3.5 w-3.5 text-moss-600" /> {store.maskedAccount}</span>
+              {isManager && (
+                <span className="flex items-center gap-1"><ILock className="h-3.5 w-3.5 text-moss-600" /> {store.maskedAccount}</span>
+              )}
             </p>
           </div>
           <label className="flex items-center gap-2.5 rounded-xl border border-line bg-paper px-3.5 py-2.5">
@@ -272,14 +276,30 @@ export function VendorView() {
         </nav>
       </section>
 
+      {store.onboarding === "validacao" && (
+        <p className="anim-fadeUp mt-4 flex items-center gap-2.5 rounded-xl border border-sun-300 bg-sun-100 px-4 py-3 text-sm font-bold text-sun-700">
+          <IClock className="h-5 w-5 shrink-0" />
+          Cadastro em validação pela plataforma (CNPJ em análise, ativação média de 26 min). Monte sua vitrine enquanto
+          isso — as vendas liberam assim que o admin aprovar.
+        </p>
+      )}
+
+      {!isManager && (
+        <p className="anim-fadeUp mt-4 flex items-center gap-2.5 rounded-xl border border-line bg-card px-4 py-3 text-sm font-bold text-inksoft">
+          <ILock className="h-5 w-5 shrink-0 text-moss-600" />
+          Sessão {session?.role === "atendente" ? "Atendente" : "Entregador"} — valores financeiros e dados bancários
+          ficam restritos ao perfil Gerente.
+        </p>
+      )}
+
       {/* ================= visão geral ================= */}
       {tab === "geral" && (
         <section className="anim-fadeUp mt-6 space-y-5">
           <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat label="Vendas hoje (GMV)" value={brl(gmvToday)} sub={`${todayOrders.length} pedidos`} tone="dark" icon={<IReceipt className="h-5 w-5" />} />
-            <Stat label="Comissão da plataforma" value={brl(commToday)} sub={`${store.commissionRate}% retidos no split`} icon={<ISplit className="h-5 w-5" />} />
-            <Stat label="Líquido a receber (D+1)" value={brl(gmvToday - commToday)} sub="repasse via gateway" icon={<ICheck className="h-5 w-5" />} />
-            <Stat label="Ticket médio" value={brl(todayOrders.length ? gmvToday / todayOrders.length : 0)} sub="hoje" icon={<IBox className="h-5 w-5" />} />
+            <Stat label="Vendas hoje (GMV)" value={isManager ? brl(gmvToday) : "R$ ••••••"} sub={isManager ? `${todayOrders.length} pedidos` : "restrito ao Gerente"} tone="dark" icon={<IReceipt className="h-5 w-5" />} />
+            <Stat label="Comissão da plataforma" value={isManager ? brl(commToday) : "R$ ••••••"} sub={isManager ? `${store.commissionRate}% retidos no split` : "restrito ao Gerente"} icon={<ISplit className="h-5 w-5" />} />
+            <Stat label="Líquido a receber (D+1)" value={isManager ? brl(gmvToday - commToday) : "R$ ••••••"} sub={isManager ? "repasse via gateway" : "restrito ao Gerente"} icon={<ICheck className="h-5 w-5" />} />
+            <Stat label="Ticket médio" value={isManager ? brl(todayOrders.length ? gmvToday / todayOrders.length : 0) : "R$ ••••••"} sub={isManager ? "hoje" : "restrito ao Gerente"} icon={<IBox className="h-5 w-5" />} />
           </div>
 
           <p className="flex items-center gap-2 rounded-lg border border-moss-200 bg-moss-50 px-4 py-3 text-xs font-semibold text-moss-700">
@@ -292,10 +312,20 @@ export function VendorView() {
               <div className="h-full rounded-xl border border-line bg-card p-5">
                 <div className="flex items-baseline justify-between">
                   <h3 className="font-display text-lg font-extrabold text-ink">Últimos 7 dias</h3>
-                  <span className="font-display text-sm font-extrabold text-moss-700">{brl(days.values.reduce((a, b) => a + b, 0))}</span>
+                  {isManager && (
+                    <span className="font-display text-sm font-extrabold text-moss-700">{brl(days.values.reduce((a, b) => a + b, 0))}</span>
+                  )}
                 </div>
                 <div className="mt-4 h-40">
-                  <MiniBars data={days.values} labels={days.labels} className="h-full" />
+                  {isManager ? (
+                    <MiniBars data={days.values} labels={days.labels} className="h-full" />
+                  ) : (
+                    <div className="grid h-full place-items-center rounded-lg border border-dashed border-moss-300 bg-moss-50/60 px-4">
+                      <p className="flex items-center gap-2 text-center text-sm font-bold text-moss-700">
+                        <ILock className="h-5 w-5 shrink-0" /> Relatório financeiro visível apenas para o perfil Gerente
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </Reveal>
@@ -596,15 +626,24 @@ export function VendorView() {
 
               <div className="rounded-xl border border-line bg-card p-5">
                 <h3 className="flex items-center gap-2 font-display text-lg font-extrabold text-ink"><ILock className="h-5 w-5 text-moss-600" /> Conta de repasse</h3>
-                <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-moss-900 px-4 py-3.5 text-sun-100">
-                  <ISplit className="h-6 w-6 text-sun-300" />
-                  <div className="flex-1">
-                    <p className="text-sm font-extrabold">{store.maskedAccount}</p>
-                    <p className="text-[11px] font-semibold text-sun-200/70">criptografada (AES-256) • validada via gateway</p>
-                  </div>
-                  <Btn kind="sun" className="px-3 py-1.5 text-xs" onClick={() => toast("Link de revalidação bancária enviado ao e-mail do titular", "info")}>Revalidar</Btn>
-                </div>
-                <p className="mt-2.5 text-[11px] font-semibold text-inksoft">Alterações de conta exigem revalidação do titular — proteção contra fraude de redirecionamento de repasse.</p>
+                {isManager ? (
+                  <>
+                    <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-moss-900 px-4 py-3.5 text-sun-100">
+                      <ISplit className="h-6 w-6 text-sun-300" />
+                      <div className="flex-1">
+                        <p className="text-sm font-extrabold">{store.maskedAccount}</p>
+                        <p className="text-[11px] font-semibold text-sun-200/70">criptografada (AES-256) • validada via gateway</p>
+                      </div>
+                      <Btn kind="sun" className="px-3 py-1.5 text-xs" onClick={() => toast("Link de revalidação bancária enviado ao e-mail do titular", "info")}>Revalidar</Btn>
+                    </div>
+                    <p className="mt-2.5 text-[11px] font-semibold text-inksoft">Alterações de conta exigem revalidação do titular — proteção contra fraude de redirecionamento de repasse.</p>
+                  </>
+                ) : (
+                  <p className="mt-3 flex items-center gap-2.5 rounded-lg border border-dashed border-moss-300 bg-moss-50/60 px-4 py-5 text-sm font-bold text-moss-700">
+                    <ILock className="h-5 w-5 shrink-0" />
+                    Dados bancários ocultos para o perfil {session?.role === "atendente" ? "Atendente" : "Entregador"} — somente o Gerente administra a conta de repasse.
+                  </p>
+                )}
               </div>
             </div>
           </Reveal>

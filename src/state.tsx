@@ -26,6 +26,24 @@ export interface Operator {
   name: string;
   role: Role;
 }
+export interface ClientUser {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  neighborhood: string | null;
+  createdAt: number;
+}
+export interface VendorSession {
+  id: string;
+  storeId: string;
+  name: string;
+  email: string;
+  role: Role;
+  createdAt: number;
+}
+export const LS_CLIENT = "mdru.clientUser.v1";
+export const LS_VENDOR = "mdru.vendorUser.v1";
 export interface Store {
   id: string;
   name: string;
@@ -105,6 +123,8 @@ export interface AppState {
   vendorStoreId: string;
   commissionDefault: number;
   seq: number;
+  clientUser: ClientUser | null;
+  vendorUser: VendorSession | null;
 }
 
 /* ============================= helpers ============================= */
@@ -446,6 +466,25 @@ function buildOrders(products: Product[], stores: Store[]): { orders: Order[]; s
 
 const seedBuilt = buildOrders(PRODUCTS, STORES);
 
+function loadSession<T extends { id: string }>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? (JSON.parse(raw) as T) : null;
+    return parsed && typeof parsed.id === "string" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+const storedClient = loadSession<ClientUser>(LS_CLIENT);
+const storedVendor = loadSession<VendorSession>(LS_VENDOR);
+// sessão de vendedor só vale se a loja ainda existe no catálogo (protótipo sem persistência de lojas)
+const validVendor =
+  storedVendor && STORES.some((s) => s.id === storedVendor.storeId) ? storedVendor : null;
+if (storedVendor && !validVendor) {
+  try { localStorage.removeItem(LS_VENDOR); } catch { /* noop */ }
+}
+
 const initialState: AppState = {
   module: "client",
   neighborhood: "vm",
@@ -456,9 +495,11 @@ const initialState: AppState = {
   cart: [],
   cartOpen: false,
   toasts: [],
-  vendorStoreId: "ze",
+  vendorStoreId: validVendor?.storeId ?? "ze",
   commissionDefault: 12,
   seq: seedBuilt.seq,
+  clientUser: storedClient,
+  vendorUser: validVendor,
 };
 
 /* ============================= actions / reducer ============================= */
@@ -482,6 +523,11 @@ type Action =
   | { type: "OPERATOR_REMOVE"; storeId: string; opId: string }
   | { type: "OPERATOR_ROLE"; storeId: string; opId: string; role: Role }
   | { type: "SET_DEFAULT_COMMISSION"; rate: number }
+  | { type: "ADD_STORE"; store: Store }
+  | { type: "LOGIN_CLIENT"; user: ClientUser }
+  | { type: "LOGOUT_CLIENT" }
+  | { type: "LOGIN_VENDOR"; user: VendorSession }
+  | { type: "LOGOUT_VENDOR" }
   | { type: "TOAST_ADD"; toast: Toast }
   | { type: "TOAST_REMOVE"; id: number };
 
@@ -601,6 +647,20 @@ function reducer(state: AppState, action: Action): AppState {
       };
     case "SET_DEFAULT_COMMISSION":
       return { ...state, commissionDefault: action.rate };
+    case "ADD_STORE":
+      return { ...state, stores: [...state.stores, action.store] };
+    case "LOGIN_CLIENT":
+      return {
+        ...state,
+        clientUser: action.user,
+        neighborhood: action.user.neighborhood ?? state.neighborhood,
+      };
+    case "LOGOUT_CLIENT":
+      return { ...state, clientUser: null, cart: [], cartOpen: false };
+    case "LOGIN_VENDOR":
+      return { ...state, vendorUser: action.user, vendorStoreId: action.user.storeId };
+    case "LOGOUT_VENDOR":
+      return { ...state, vendorUser: null };
     case "TOAST_ADD":
       return { ...state, toasts: [...state.toasts.slice(-3), action.toast] };
     case "TOAST_REMOVE":
@@ -637,6 +697,11 @@ export interface AppApi {
   removeOperator: (storeId: string, opId: string) => void;
   setOperatorRole: (storeId: string, opId: string, role: Role) => void;
   setDefaultCommission: (rate: number) => void;
+  loginClient: (user: ClientUser) => void;
+  logoutClient: () => void;
+  loginVendor: (user: VendorSession) => void;
+  logoutVendor: () => void;
+  registerStore: (data: { name: string; owner: string; neighborhood: string }) => string;
   toast: (msg: string, kind?: Toast["kind"]) => void;
   nbName: (id: string) => string;
 }
@@ -732,6 +797,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setOperatorRole: (storeId, opId, role) =>
         dispatch({ type: "OPERATOR_ROLE", storeId, opId, role }),
       setDefaultCommission: (rate) => dispatch({ type: "SET_DEFAULT_COMMISSION", rate }),
+      loginClient: (user) => {
+        try { localStorage.setItem(LS_CLIENT, JSON.stringify(user)); } catch { /* noop */ }
+        dispatch({ type: "LOGIN_CLIENT", user });
+      },
+      logoutClient: () => {
+        try { localStorage.removeItem(LS_CLIENT); } catch { /* noop */ }
+        dispatch({ type: "LOGOUT_CLIENT" });
+      },
+      loginVendor: (user) => {
+        try { localStorage.setItem(LS_VENDOR, JSON.stringify(user)); } catch { /* noop */ }
+        dispatch({ type: "LOGIN_VENDOR", user });
+      },
+      logoutVendor: () => {
+        try { localStorage.removeItem(LS_VENDOR); } catch { /* noop */ }
+        dispatch({ type: "LOGOUT_VENDOR" });
+      },
+      registerStore: ({ name, owner, neighborhood }) => {
+        const s = stateRef.current;
+        const id = nextId();
+        const initials =
+          name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "MK";
+        const store: Store = {
+          id,
+          name,
+          owner,
+          initials,
+          neighborhoods: [neighborhood],
+          radiusKm: 2,
+          rating: 0,
+          reviews: 0,
+          eta: [25, 40],
+          distanceKm: 0.9,
+          tags: ["Novo parceiro", "Adesão R$ 0"],
+          isOpen: true,
+          deliveryFee: 4.9,
+          commissionRate: s.commissionDefault,
+          monthlyVolume: 0,
+          maskedAccount: "conta em validação no gateway",
+          operators: [{ id: nextId(), name: owner, role: "gerente" }],
+          onboarding: "validacao",
+        };
+        dispatch({ type: "ADD_STORE", store });
+        return id;
+      },
       toast,
       nbName,
     };

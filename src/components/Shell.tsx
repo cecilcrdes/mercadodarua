@@ -1,6 +1,10 @@
 import React, { useState } from "react";
 import { useApp, Module, STATUS_META } from "../state";
-import { cx, IBasket, IChart, IShield, IStore, Modal, ISplit, ILock, IX, IPin } from "./ui";
+import { cx, IBasket, IChart, IShield, IStore, Modal, ISplit, ILock, IX, IPin, ILogOut, Monogram } from "./ui";
+
+const ROLE_LABEL_PT: Record<string, string> = { gerente: "Gerente", atendente: "Atendente", entregador: "Entregador" };
+const initialsOf = (name: string) =>
+  name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
 
 const MODULES: { id: Module; label: string; icon: (p: { className?: string }) => React.ReactElement }[] = [
   { id: "client", label: "App do Cliente", icon: IBasket },
@@ -23,7 +27,7 @@ function BrandMark() {
   );
 }
 
-const LEGAL: Record<string, { title: string; body: string[] }> = {
+export const LEGAL: Record<string, { title: string; body: string[] }> = {
   termos: {
     title: "Termos de Uso",
     body: [
@@ -55,7 +59,7 @@ const LEGAL: Record<string, { title: string; body: string[] }> = {
   },
 };
 
-function LegalModal({ open, tab, onClose, setTab }: { open: boolean; tab: string; onClose: () => void; setTab: (t: string) => void }) {
+export function LegalModal({ open, tab, onClose, setTab }: { open: boolean; tab: string; onClose: () => void; setTab: (t: string) => void }) {
   const doc = LEGAL[tab];
   return (
     <Modal open={open} onClose={onClose} wide>
@@ -104,8 +108,9 @@ function LegalModal({ open, tab, onClose, setTab }: { open: boolean; tab: string
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { state, setModule, setCartOpen } = useApp();
+  const { state, setModule, setCartOpen, logoutClient, logoutVendor, nbName, toast } = useApp();
   const [legal, setLegal] = useState<{ open: boolean; tab: string }>({ open: false, tab: "lgpd" });
+  const vendorStoreName = state.stores.find((s) => s.id === state.vendorStoreId)?.name ?? "Loja";
 
   const cartCount = state.cart.reduce((a, l) => a + l.qty, 0);
 
@@ -160,7 +165,26 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
-            {state.module === "client" && (
+            {state.module === "client" && state.clientUser && (
+              <span className="flex items-center gap-2 rounded-xl border border-line bg-card py-1.5 pl-1.5 pr-1.5">
+                <Monogram initials={initialsOf(state.clientUser.name)} className="h-8 w-8 rounded-lg text-[11px]" />
+                <span className="hidden leading-tight sm:block">
+                  <span className="block text-xs font-extrabold text-ink">{state.clientUser.name.split(" ")[0]}</span>
+                  <span className="block text-[10px] font-bold text-moss-600">
+                    {state.neighborhood ? nbName(state.neighborhood) : "sem bairro definido"}
+                  </span>
+                </span>
+                <button
+                  onClick={() => { logoutClient(); toast("Sessão encerrada — até a próxima feira!", "info"); }}
+                  className="grid h-8 w-8 place-items-center rounded-lg text-inksoft transition hover:bg-clay-100 hover:text-clay-600"
+                  title="Sair da conta"
+                  aria-label="Sair da conta de cliente"
+                >
+                  <ILogOut className="h-4 w-4" />
+                </button>
+              </span>
+            )}
+            {state.module === "client" && state.clientUser && (
               <button
                 onClick={() => setCartOpen(true)}
                 className="relative flex items-center gap-2 rounded-xl border border-line bg-card px-3.5 py-2.5 text-sm font-bold text-ink transition hover:-translate-y-0.5 hover:border-moss-400 hover:shadow-lift"
@@ -178,10 +202,18 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 )}
               </button>
             )}
-            {state.module === "vendor" && (
-              <span className="hidden items-center gap-2 rounded-xl border border-line bg-card px-3 py-2.5 text-xs font-bold text-inksoft md:flex">
+            {state.module === "vendor" && state.vendorUser && (
+              <span className="hidden items-center gap-2 rounded-xl border border-line bg-card py-1.5 pl-3 pr-1.5 text-xs font-bold text-inksoft md:flex">
                 <ILock className="h-4 w-4 text-moss-600" />
-                Sessão: Mercadinho do Zé — perfil Gerente
+                {vendorStoreName} — perfil {ROLE_LABEL_PT[state.vendorUser.role] ?? state.vendorUser.role}
+                <button
+                  onClick={() => { logoutVendor(); toast("Sessão do parceiro encerrada", "info"); }}
+                  className="grid h-8 w-8 place-items-center rounded-lg text-inksoft transition hover:bg-clay-100 hover:text-clay-600"
+                  title="Sair do painel"
+                  aria-label="Sair do painel do vendedor"
+                >
+                  <ILogOut className="h-4 w-4" />
+                </button>
               </span>
             )}
             {state.module === "admin" && (

@@ -74,6 +74,19 @@ export const ILock = (p: IconProps) => (
     <path d="M12 14.5v2" />
   </S>
 );
+export const ILogOut = (p: IconProps) => (
+  <S {...p}>
+    <path d="M14 4H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7" />
+    <path d="M17 8l4 4-4 4" />
+    <path d="M21 12H10" />
+  </S>
+);
+export const IUser = (p: IconProps) => (
+  <S {...p}>
+    <circle cx="12" cy="8" r="3.6" />
+    <path d="M4.8 20c1.4-3.4 4-5 7.2-5s5.8 1.6 7.2 5" />
+  </S>
+);
 export const IChart = (p: IconProps) => (
   <S {...p}>
     <path d="M4 20V4" />
@@ -171,6 +184,13 @@ export const IEye = (p: IconProps) => (
   <S {...p}>
     <path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12Z" />
     <circle cx="12" cy="12" r="2.8" />
+  </S>
+);
+export const IEyeOff = (p: IconProps) => (
+  <S {...p}>
+    <path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12Z" />
+    <circle cx="12" cy="12" r="2.8" />
+    <path d="M4.5 4.5l15 15" />
   </S>
 );
 export const IReceipt = (p: IconProps) => (

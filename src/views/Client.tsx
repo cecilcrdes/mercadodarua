@@ -11,7 +11,7 @@ import {
 
 /* ---------------- cena ilustrada (SVG próprio) ---------------- */
 
-function MarketScene({ className }: { className?: string }) {
+export function MarketScene({ className }: { className?: string }) {
   const scallops: React.ReactElement[] = [];
   for (let i = 0; i < 13; i++) {
     scallops.push(
@@ -631,7 +631,7 @@ export function ClientView() {
                             <h3 className="truncate font-display text-lg font-extrabold text-ink">{s.name}</h3>
                           </div>
                           <p className="flex items-center gap-1 text-xs font-semibold text-inksoft">
-                            <IStar className="h-3.5 w-3.5 text-sun-500" sw={2.2} /> {s.rating.toFixed(1)} ({s.reviews}) • {s.tags.slice(0, 2).join(" • ")}
+                            <IStar className="h-3.5 w-3.5 text-sun-500" sw={2.2} /> {s.reviews > 0 ? `${s.rating.toFixed(1)} (${s.reviews})` : "novo no bairro"} • {s.tags.slice(0, 2).join(" • ")}
                           </p>
                         </div>
                         <span className={cx("flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-extrabold", s.isOpen ? "bg-moss-100 text-moss-700" : "bg-ink/5 text-inksoft")}>
@@ -667,7 +667,7 @@ export function ClientView() {
               <div className="min-w-0 flex-1">
                 <h2 className="font-display text-2xl font-extrabold text-ink">{store.name}</h2>
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-inksoft">
-                  <span className="flex items-center gap-1"><IStar className="h-3.5 w-3.5 text-sun-500" sw={2.2} /> {store.rating.toFixed(1)} ({store.reviews} avaliações)</span>
+                  <span className="flex items-center gap-1"><IStar className="h-3.5 w-3.5 text-sun-500" sw={2.2} /> {store.reviews > 0 ? `${store.rating.toFixed(1)} (${store.reviews} avaliações)` : "parceiro recém-chegado"}</span>
                   <span className="flex items-center gap-1"><IClock className="h-3.5 w-3.5" /> {store.eta[0]}–{store.eta[1]} min</span>
                   <span className="flex items-center gap-1"><IBike className="h-3.5 w-3.5" /> entrega própria {brl(store.deliveryFee)}</span>
                   <span className="flex items-center gap-1 text-moss-700"><IShield className="h-3.5 w-3.5" /> seu endereço aparece só durante a entrega</span>

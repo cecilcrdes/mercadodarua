@@ -5,19 +5,20 @@ import { Toasts } from "./components/ui";
 import { ClientView } from "./views/Client";
 import { VendorView } from "./views/Vendor";
 import { AdminView } from "./views/Admin";
+import { ClientLogin, VendorLogin } from "./views/Auth";
 
 function Root() {
   const { state } = useApp();
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [state.module]);
+  }, [state.module, state.clientUser, state.vendorUser]);
 
   return (
     <Shell>
       <div className="bg-dots">
-        {state.module === "client" && <ClientView />}
-        {state.module === "vendor" && <VendorView />}
+        {state.module === "client" && (state.clientUser ? <ClientView /> : <ClientLogin />)}
+        {state.module === "vendor" && (state.vendorUser ? <VendorView /> : <VendorLogin />)}
         {state.module === "admin" && <AdminView />}
       </div>
       <Toasts />
